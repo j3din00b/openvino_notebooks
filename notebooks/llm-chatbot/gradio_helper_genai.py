@@ -61,7 +61,7 @@ def get_system_prompt(model_language, system_prompt=None):
     return (
         DEFAULT_SYSTEM_PROMPT_CHINESE
         if (model_language == "Chinese")
-        else DEFAULT_SYSTEM_PROMPT_JAPANESE if (model_language == "Japanese") else DEFAULT_SYSTEM_PROMPT
+        else (DEFAULT_SYSTEM_PROMPT_JAPANESE if (model_language == "Japanese") else DEFAULT_SYSTEM_PROMPT)
     )
 
 
@@ -88,6 +88,7 @@ class IterableStreamer(ov_genai.StreamerBase):
         self.tokens_cache = []
         self.text_queue = queue.Queue()
         self.print_len = 0
+        self.decoded_lengths = []
 
     def __iter__(self):
         """
@@ -140,27 +141,32 @@ class IterableStreamer(ov_genai.StreamerBase):
         """
         self.tokens_cache.append(token_id)
         text = self.tokenizer.decode(self.tokens_cache)
+        self.decoded_lengths.append(len(text))
 
         word = ""
+        delay_n_tokens = 3
         if len(text) > self.print_len and "\n" == text[-1]:
             # Flush the cache after the new line symbol.
             word = text[self.print_len :]
             self.tokens_cache = []
+            self.decoded_lengths = []
             self.print_len = 0
-        elif len(text) >= 3 and text[-3:] == chr(65533):
+        elif len(text) > 0 and text[-1] == chr(65533):
             # Don't print incomplete text.
-            pass
-        elif len(text) > self.print_len:
-            # It is possible to have a shorter text after adding new token.
-            # Print to output only if text length is increaesed.
-            word = text[self.print_len :]
-            self.print_len = len(text)
+            self.decoded_lengths[-1] = -1
+        elif len(self.tokens_cache) >= delay_n_tokens:
+            print_until = self.decoded_lengths[-delay_n_tokens]
+            if print_until != -1 and print_until > self.print_len:
+                # It is possible to have a shorter text after adding new token.
+                # Print to output only if text length is increased and text is complete (print_until != -1).
+                word = text[self.print_len : print_until]
+                self.print_len = print_until
         self.put_word(word)
 
         if self.get_stop_flag():
             # When generation is stopped from streamer then end is not called, need to call it here manually.
             self.end()
-            return True  # True means stop  generation
+            return True  # True means stop generation
         else:
             return False  # False means continue generation
 
@@ -176,23 +182,18 @@ class IterableStreamer(ov_genai.StreamerBase):
             self.print_len = 0
         self.put_word(None)
 
-    def reset(self):
-        self.tokens_cache = []
-        self.text_queue = queue.Queue()
-        self.print_len = 0
-
 
 class ChunkStreamer(IterableStreamer):
 
-    def __init__(self, tokenizer, tokens_len=4):
+    def __init__(self, tokenizer, tokens_len):
         super().__init__(tokenizer)
         self.tokens_len = tokens_len
 
     def put(self, token_id: int) -> bool:
         if (len(self.tokens_cache) + 1) % self.tokens_len != 0:
             self.tokens_cache.append(token_id)
+            self.decoded_lengths.append(-1)
             return False
-        sys.stdout.flush()
         return super().put(token_id)
 
 
@@ -368,7 +369,11 @@ def make_demo(pipe, model_configuration, model_id, model_language, disable_advan
                                 interactive=True,
                                 info="Penalize repetition — 1.0 to disable.",
                             )
-        gr.Examples(examples, inputs=msg, label="Click on any example and press the 'Submit' button")
+        gr.Examples(
+            examples,
+            inputs=msg,
+            label="Click on any example and press the 'Submit' button",
+        )
 
         msg.submit(
             fn=bot,
@@ -383,6 +388,11 @@ def make_demo(pipe, model_configuration, model_id, model_language, disable_advan
             queue=True,
         )
         stop.click(fn=stop_chat, inputs=streamer, outputs=[streamer], queue=False)
-        clear.click(fn=stop_chat_and_clear_history, inputs=streamer, outputs=[chatbot, streamer], queue=False)
+        clear.click(
+            fn=stop_chat_and_clear_history,
+            inputs=streamer,
+            outputs=[chatbot, streamer],
+            queue=False,
+        )
 
         return demo
