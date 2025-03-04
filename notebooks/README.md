@@ -270,6 +270,7 @@
 - [Visual-language assistant with LLaVA Next and OpenVINO](./llava-next-multimodal-chatbot/llava-next-multimodal-chatbot.ipynb)
 - [Visual-language assistant with LLaVA and Optimum Intel OpenVINO integration](./llava-multimodal-chatbot/llava-multimodal-chatbot-optimum.ipynb)
 - [Visual-language assistant with LLaVA and OpenVINO Generative API](./llava-multimodal-chatbot/llava-multimodal-chatbot-genai.ipynb)
+- [Text-to-Speech synthesis using Llasa and OpenVINO](./llasa-speech-synthesis/llasa-speech-synthesis.ipynb)
 - [Text-to-Image Generation with LCM LoRA and ControlNet Conditioning](./latent-consistency-models-image-generation/lcm-lora-controlnet.ipynb)
 - [Image generation with Latent Consistency Model and OpenVINO](./latent-consistency-models-image-generation/latent-consistency-models-image-generation.ipynb)
 - [Kosmos-2: Multimodal Large Language Model and OpenVINO](./kosmos2-multimodal-large-language-model/kosmos2-multimodal-large-language-model.ipynb)
